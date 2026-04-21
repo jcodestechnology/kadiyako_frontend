@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Typography, Card, message, Button, Modal, Form, Input, Space, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { Table, Typography, message, Button, Modal, Form, Input, Space, Popconfirm, Skeleton } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import axiosInstance from '../api/axios';
 
 const { Title } = Typography;
@@ -8,18 +8,44 @@ const { Title } = Typography;
 const Permissions = () => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentPermission, setCurrentPermission] = useState(null);
   const [form] = Form.useForm();
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+    },
+    search: '',
+  });
 
-  const fetchPermissions = async () => {
+  const searchTimeoutRef = useRef(null);
+
+  const fetchPermissions = async (params = tableParams) => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('/permissions');
+      const skip = (params.pagination.current - 1) * params.pagination.pageSize;
+      
+      const response = await axiosInstance.get('/permissions', {
+        params: {
+          search: params.search,
+          skip: skip,
+          take: params.pagination.pageSize,
+        }
+      });
+      
       const data = response.data.data || response.data;
+      const meta = response.data.meta;
+      
       setPermissions(Array.isArray(data) ? data : []);
+      if (meta) {
+        setTotal(meta.total);
+      } else {
+        setTotal(data.length);
+      }
     } catch (error) {
       message.error('Failed to load permissions');
       console.error(error);
@@ -30,7 +56,30 @@ const Permissions = () => {
 
   useEffect(() => {
     fetchPermissions();
-  }, []);
+  }, [tableParams.pagination.current, tableParams.pagination.pageSize, tableParams.search]);
+
+  const handleTableChange = (pagination) => {
+    setTableParams({
+      ...tableParams,
+      pagination,
+    });
+  };
+
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setTableParams({
+        ...tableParams,
+        search: value,
+        pagination: { ...tableParams.pagination, current: 1 },
+      });
+    }, 500);
+  };
 
   const showCreateModal = () => {
     setIsEditMode(false);
@@ -128,22 +177,41 @@ const Permissions = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>Permissions Management</Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal}>
-          Create Permission
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '16px' }}>
+        <h2 className="page-header-title">Permissions Management</h2>
+        <Space>
+          <Input
+            placeholder="Search permissions..."
+            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+            onChange={handleSearch}
+            style={{ width: 300, borderRadius: '8px' }}
+            allowClear
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal}>
+            Create Permission
+          </Button>
+        </Space>
       </div>
       
-      <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-        <Table 
-          columns={columns} 
-          dataSource={permissions} 
-          rowKey="id" 
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-        />
-      </Card>
+      <div style={{ background: '#fff', borderRadius: '8px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        {loading && permissions.length === 0 ? (
+          <Skeleton active paragraph={{ rows: 10 }} />
+        ) : (
+          <Table 
+            columns={columns} 
+            dataSource={permissions} 
+            rowKey="id" 
+            loading={loading}
+            pagination={{ 
+              ...tableParams.pagination,
+              total: total,
+              showSizeChanger: true,
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        )}
+      </div>
 
       <Modal
         title={isEditMode ? "Edit Permission" : "Create New Permission"}

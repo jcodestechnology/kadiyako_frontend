@@ -1,30 +1,224 @@
 .custom-sider {
-  box-shadow: 2px 0 8px 0 rgba(29, 35, 41, 0.05);
-  z-index: 2;
+  background: linear-gradient(180deg, #0892d0 0%, #000080 100%) !important;
+  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+  z-index: 10;
 }
 
 .logo-container {
-  height: 64px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 12px;
 }
 
-.logo {
-  height: 32px;
-  width: 100%;
-  background: linear-gradient(90deg, #1890ff, #722ed1);
-  border-radius: 6px;
+.logo-img-new {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.logo-img-new.collapsed {
+  height: 36px;
+}
+
+.logo-text-new {
   color: white;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* Customizing the dark menu to match the gradient */
+.custom-menu.ant-menu-dark,
+.custom-menu.ant-menu-dark .ant-menu-sub {
+  background: transparent !important;
+}
+
+.custom-menu.ant-menu-dark .ant-menu-item-selected {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px;
+  margin: 4px 12px;
+  width: calc(100% - 24px);
+}
+
+.custom-menu.ant-menu-dark .ant-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px;
+  margin: 4px 12px;
+  width: calc(100% - 24px);
+}
+
+.custom-menu.ant-menu-dark .ant-menu-item {
+  border-radius: 8px;
+  margin: 4px 12px;
+  width: calc(100% - 24px);
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+.header-toggle-wrapper {
   display: flex;
   align-items: center;
+  padding-left: 16px;
+}
+
+.custom-trigger {
+  font-size: 18px !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 1px;
-  overflow: hidden;
+  color: #0892d0 !important;
+  background: rgba(8, 146, 208, 0.05) !important;
+  transition: all 0.3s ease !important;
+}
+
+.custom-trigger:hover {
+  background: rgba(8, 146, 208, 0.1) !important;
+  color: #000080 !important;
+}
+
+.site-layout {
+  background: #f0f2f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.custom-breadcrumb-header {
+  margin-left: 16px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  .custom-breadcrumb-header {
+    display: none;
+  }
+}
+
+.custom-breadcrumb-header a {
+  font-weight: 500;
+  color: #8c8c8c;
+  transition: color 0.3s ease;
+}
+
+.custom-breadcrumb-header a:hover {
+  color: #0892d0;
+  background: transparent;
+}
+
+.custom-breadcrumb-header span:last-child {
+  color: #262626;
+  font-weight: 600;
+}
+
+/* Custom Toggle Button Design - Animated Hamburger */
+.hamburger-toggle {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background: #f0f5ff;
+  border-radius: 12px;
+  border: 1px solid rgba(8, 146, 208, 0.1);
+  margin-left: 16px;
+  transition: all 0.3s ease;
+  padding: 0;
+  border: none;
+  gap: 4px;
+}
+
+.hamburger-toggle:hover {
+  background: #e6f0ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(8, 146, 208, 0.1);
+}
+
+.hamburger-line {
+  width: 18px;
+  height: 2px;
+  background-color: #0892d0;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-toggle.active .line-1 {
+  transform: translateY(6px) rotate(45deg);
+  width: 20px;
+}
+
+.hamburger-toggle.active .line-2 {
+  opacity: 0;
+}
+
+.hamburger-toggle.active .line-3 {
+  transform: translateY(-6px) rotate(-45deg);
+  width: 20px;
+}
+
+.page-header-title {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: uppercase;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.page-header-title::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(180deg, #0892d0 0%, #000080 100%);
+  border-radius: 10px;
+  display: inline-block;
+  box-shadow: 0 2px 4px rgba(8, 146, 208, 0.2);
+}
+
+.notification-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.3s ease !important;
+}
+
+.notification-btn:hover {
+  background: rgba(8, 146, 208, 0.08) !important;
+  color: #0892d0 !important;
+}
+
+.notification-btn:hover .anticon {
+  color: #0892d0 !important;
+}
+
+/* Ensure Content Titles are responsive */
+@media (max-width: 768px) {
+  .ant-typography h2, 
+  h2.ant-typography {
+    font-size: 20px !important;
+  }
 }
 
 /* Ensure the layout takes full height */

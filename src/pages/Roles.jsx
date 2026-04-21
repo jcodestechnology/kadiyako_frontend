@@ -1,28 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Typography, Card, message, Button, Modal, Form, Input, Space, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { Table, Typography, message, Button, Modal, Form, Input, Space, Popconfirm, Tag, Skeleton } from 'antd';
+import { PlusOutlined, DeleteOutlined, SearchOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 
-const { Title } = Typography;
+const { Text } = Typography;
 
 const Roles = () => {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [currentRole, setCurrentRole] = useState(null);
   const [form] = Form.useForm();
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+    },
+    search: '',
+  });
 
-  const fetchRoles = async () => {
+  const navigate = useNavigate();
+  const searchTimeoutRef = useRef(null);
+
+  const fetchRoles = async (params = tableParams) => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('/roles');
+      const skip = (params.pagination.current - 1) * params.pagination.pageSize;
+      
+      const response = await axiosInstance.get('/roles', {
+        params: {
+          search: params.search,
+          skip: skip,
+          take: params.pagination.pageSize,
+        }
+      });
+      
       const data = response.data.data || response.data;
+      const meta = response.data.meta;
+      
       setRoles(Array.isArray(data) ? data : []);
+      if (meta) {
+        setTotal(meta.total);
+      } else {
+        setTotal(data.length);
+      }
     } catch (error) {
       message.error('Failed to load roles');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -30,22 +55,31 @@ const Roles = () => {
 
   useEffect(() => {
     fetchRoles();
-  }, []);
+  }, [tableParams.pagination.current, tableParams.pagination.pageSize, tableParams.search]);
 
-  const showCreateModal = () => {
-    setIsEditMode(false);
-    setCurrentRole(null);
-    form.resetFields();
-    setIsModalVisible(true);
+  const handleTableChange = (pagination) => {
+    setTableParams({
+      ...tableParams,
+      pagination,
+    });
   };
 
-  const showEditModal = (role) => {
-    setIsEditMode(true);
-    setCurrentRole(role);
-    form.setFieldsValue({
-      name: role.name,
-      slug: role.slug
-    });
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setTableParams({
+        ...tableParams,
+        search: value,
+        pagination: { ...tableParams.pagination, current: 1 },
+      });
+    }, 500);
+  };
+
+  const showCreateModal = () => {
+    form.resetFields();
     setIsModalVisible(true);
   };
 
@@ -57,13 +91,8 @@ const Roles = () => {
   const handleSubmit = async (values) => {
     setSubmitLoading(true);
     try {
-      if (isEditMode) {
-        await axiosInstance.put(`/roles/${currentRole.id}`, values);
-        message.success('Role updated successfully');
-      } else {
-        await axiosInstance.post('/roles', values);
-        message.success('Role created successfully');
-      }
+      await axiosInstance.post('/roles', values);
+      message.success('Role created successfully');
       setIsModalVisible(false);
       form.resetFields();
       fetchRoles();
@@ -89,23 +118,35 @@ const Roles = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      render: (text, record) => (
+        <Space>
+          <Text strong>{text}</Text>
+          {record.is_system && <Tag color="gold">System</Tag>}
+        </Space>
+      )
     },
     {
       title: 'Slug',
       dataIndex: 'slug',
       key: 'slug',
+      render: (text) => <Tag color="default">{text}</Tag>
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 200,
       render: (_, record) => (
         <Space size="middle">
           <Button 
-            type="text" 
-            icon={<EditOutlined />} 
-            onClick={() => showEditModal(record)} 
-            disabled={record.is_system}
-          />
+            type="primary"
+            ghost
+            size="small"
+            icon={<SafetyCertificateOutlined />} 
+            onClick={() => navigate(`/roles/${record.id}`)}
+            style={{ borderRadius: '6px' }}
+          >
+            Permissions
+          </Button>
           <Popconfirm
             title="Delete the role"
             description="Are you sure to delete this role?"
@@ -128,28 +169,54 @@ const Roles = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>Roles Management</Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal}>
-          Create Role
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: '16px' }}>
+        <h2 className="page-header-title">Roles Management</h2>
+        <Space>
+          <Input
+            placeholder="Search roles..."
+            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+            onChange={handleSearch}
+            style={{ width: 250, borderRadius: '10px' }}
+            allowClear
+          />
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={showCreateModal}
+            style={{ borderRadius: '10px', height: '40px' }}
+          >
+            Create New Role
+          </Button>
+        </Space>
       </div>
       
-      <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-        <Table 
-          columns={columns} 
-          dataSource={roles} 
-          rowKey="id" 
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-        />
-      </Card>
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+        {loading && roles.length === 0 ? (
+          <Skeleton active paragraph={{ rows: 10 }} />
+        ) : (
+          <Table 
+            columns={columns} 
+            dataSource={roles} 
+            rowKey="id" 
+            loading={loading}
+            pagination={{ 
+              ...tableParams.pagination,
+              total: total,
+              showSizeChanger: true,
+              borderRadius: '8px'
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 'max-content' }}
+          />
+        )}
+      </div>
 
       <Modal
-        title={isEditMode ? "Edit Role" : "Create New Role"}
+        title="Create New Role"
         open={isModalVisible}
         onCancel={handleCancel}
         footer={null}
+        width={400}
       >
         <Form
           form={form}
@@ -161,7 +228,7 @@ const Roles = () => {
             label="Role Name"
             rules={[{ required: true, message: 'Please input the role name!' }]}
           >
-            <Input placeholder="e.g. Editor" />
+            <Input placeholder="e.g. Manager" />
           </Form.Item>
           
           <Form.Item
@@ -169,14 +236,14 @@ const Roles = () => {
             label="Role Slug"
             rules={[{ required: true, message: 'Please input the role slug!' }]}
           >
-            <Input placeholder="e.g. editor" />
+            <Input placeholder="e.g. manager" />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
               <Button onClick={handleCancel}>Cancel</Button>
               <Button type="primary" htmlType="submit" loading={submitLoading}>
-                {isEditMode ? 'Update' : 'Create'}
+                Create Role
               </Button>
             </Space>
           </Form.Item>

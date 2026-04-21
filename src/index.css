@@ -31,3 +31,33 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.4);
 }
+
+.scrollable-permissions {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 10px;
+}
+
+.permissions-group-card {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.permissions-group-card:hover {
+  border-color: #0892d0;
+  box-shadow: 0 4px 12px rgba(8, 146, 208, 0.05);
+}
+
+.custom-checkbox .ant-checkbox-checked .ant-checkbox-inner {
+  background-color: #0892d0;
+  border-color: #0892d0;
+}
+
+.custom-checkbox:hover .ant-checkbox-inner {
+  border-color: #0892d0;
+}
