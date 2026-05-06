@@ -10,6 +10,12 @@ import {
   LogoutOutlined,
   UserAddOutlined,
   BellOutlined,
+  GroupOutlined,
+  PictureOutlined,
+  UploadOutlined,
+  TagsOutlined,
+  CalendarOutlined,
+  ScanOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +47,33 @@ const DashboardLayout = () => {
       key: '/',
       icon: <DashboardOutlined />,
       label: 'Dashboard Overview',
+    },
+    {
+      key: 'templates-section',
+      icon: <PictureOutlined />,
+      label: 'Card Templates',
+      children: [
+        { key: '/template-studio', label: 'Template Studio', icon: <UploadOutlined /> },
+        { key: '/template-catalog', label: 'Template Catalog', icon: <TagsOutlined /> },
+      ],
+    },
+    {
+      key: 'events-section',
+      icon: <CalendarOutlined />,
+      label: 'Event Management',
+      children: [
+        { key: '/events', label: 'My Events' },
+        { key: '/scan', label: 'Verify Access', icon: <ScanOutlined /> },
+      ],
+    },
+    {
+      key: 'contacts-section',
+      icon: <TeamOutlined />,
+      label: 'Contacts',
+      children: [
+        { key: '/contacts', label: 'My Contacts' },
+        { key: '/contact-groups', label: 'Contact Groups', icon: <GroupOutlined /> },
+      ],
     },
     {
       key: 'user-management',

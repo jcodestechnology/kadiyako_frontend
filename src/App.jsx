@@ -14,6 +14,14 @@ import UserDetails from './pages/UserDetails';
 import Roles from './pages/Roles';
 import RoleDetails from './pages/RoleDetails';
 import Permissions from './pages/Permissions';
+import Contacts from './pages/Contacts';
+import Groups from './pages/Groups';
+import Templates from './pages/Templates';
+import TemplateStudio from './pages/TemplateStudio';
+import TemplateCatalog from './pages/TemplateCatalog';
+import Events from './pages/Events';
+import EventDashboard from './pages/EventDashboard';
+import QRScanner from './pages/QRScanner';
 
 function App() {
   return (
@@ -45,6 +53,14 @@ function App() {
                 <Route path="/roles" element={<Roles />} />
                 <Route path="/roles/:id" element={<RoleDetails />} />
                 <Route path="/permissions" element={<Permissions />} />
+                <Route path="/contacts" element={<Contacts />} />
+                <Route path="/contact-groups" element={<Groups />} />
+                <Route path="/templates" element={<Templates />} />
+                <Route path="/template-studio" element={<TemplateStudio />} />
+                <Route path="/template-catalog" element={<TemplateCatalog />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/events/:id" element={<EventDashboard />} />
+                <Route path="/scan" element={<QRScanner />} />
               </Route>
             </Route>
 
