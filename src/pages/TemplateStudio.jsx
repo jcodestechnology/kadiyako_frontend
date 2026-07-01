@@ -188,15 +188,6 @@ const TemplateStudio = () => {
       render: (_, record) => (
         <Space>
           <Button 
-            type="primary" 
-            ghost 
-            icon={<SettingOutlined />} 
-            onClick={() => openConfig(record)}
-            style={{ borderRadius: 6 }}
-          >
-            Configure
-          </Button>
-          <Button 
             onClick={() => handleToggle(record)} 
             type={record.is_active ? 'default' : 'primary'}
             style={{ borderRadius: 6 }}
@@ -211,8 +202,8 @@ const TemplateStudio = () => {
   return (
     <div style={{ paddingBottom: 24 }}>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>Template Studio</Title>
-        <Text type="secondary">Import image templates from designers and configure data overlays (Name, QR Code).</Text>
+        <Title level={3} style={{ margin: 0 }}>Template Builder</Title>
+        <Text type="secondary">Import image templates from designers.</Text>
       </div>
 
       <Row gutter={[24, 24]}>
@@ -241,7 +232,7 @@ const TemplateStudio = () => {
         </Col>
 
         <Col xs={24} lg={16}>
-          <Card title="My Templates" bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <Card title="Templates" bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
             <Table
               rowKey="id"
               dataSource={templates}

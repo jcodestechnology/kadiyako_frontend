@@ -22,6 +22,11 @@ const EventCardImage = ({ event, templates }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (event.image_url) {
+      setUrl(event.image_url);
+      return;
+    }
+
     let objectUrl = null;
     let isMounted = true;
 
@@ -58,7 +63,7 @@ const EventCardImage = ({ event, templates }) => {
       isMounted = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [event.template_id, templates]);
+  }, [event.image_url, event.template_id, templates]);
 
   if (loading) return <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}><Spin size="small" /></div>;
   

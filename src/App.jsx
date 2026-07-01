@@ -6,7 +6,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 
 // Pages
+import Home from './pages/Home';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import UserCreate from './pages/UserCreate';
@@ -21,7 +23,14 @@ import TemplateStudio from './pages/TemplateStudio';
 import TemplateCatalog from './pages/TemplateCatalog';
 import Events from './pages/Events';
 import EventDashboard from './pages/EventDashboard';
+import EventCardStudio from './pages/EventCardStudio';
 import QRScanner from './pages/QRScanner';
+import CardGenerator from './pages/CardGenerator';
+import MessagingPanel from './pages/Messaging/MessagingPanel';
+import SentMessages from './pages/Messaging/SentMessages';
+import MessageTemplates from './pages/Messaging/MessageTemplates';
+import UserProfile from './pages/UserProfile';
+import Packages from './pages/Packages';
 
 function App() {
   return (
@@ -41,12 +50,15 @@ function App() {
       <AuthProvider>
         <Router>
           <Routes>
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard/packages" element={<Packages />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/users/create" element={<UserCreate />} />
                 <Route path="/users/:id" element={<UserDetails />} />
@@ -55,12 +67,18 @@ function App() {
                 <Route path="/permissions" element={<Permissions />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/contact-groups" element={<Groups />} />
+                <Route path="/messaging" element={<MessagingPanel />} />
+                <Route path="/messaging/history" element={<SentMessages />} />
+                <Route path="/messaging/templates" element={<MessageTemplates />} />
                 <Route path="/templates" element={<Templates />} />
                 <Route path="/template-studio" element={<TemplateStudio />} />
                 <Route path="/template-catalog" element={<TemplateCatalog />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/events/:id" element={<EventDashboard />} />
+                <Route path="/events/:id/studio" element={<EventCardStudio />} />
+                <Route path="/cards" element={<CardGenerator />} />
                 <Route path="/scan" element={<QRScanner />} />
+                <Route path="/profile" element={<UserProfile />} />
               </Route>
             </Route>
 

@@ -29,6 +29,10 @@ axiosInstance.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       // Clear token and redirect to login if unauthorized
       localStorage.removeItem('token');
+      
+      // Set a flag to show a message on the login page
+      localStorage.setItem('session_expired', 'true');
+
       // Only redirect if not already on the login page
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

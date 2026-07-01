@@ -23,6 +23,26 @@ const eventsApi = {
 
     toggleEventStatus: (id) => {
         return axiosInstance.patch(`/events/${id}/toggle`);
+    },
+
+    uploadDesign: (id, data) => {
+        return axiosInstance.post(`/events/${id}/designs`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+
+    uploadEventImage: (id, data) => {
+        return axiosInstance.post(`/events/${id}/image`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+
+    updateStudio: (eventId, designId, data) => {
+        return axiosInstance.put(`/events/${eventId}/designs/${designId}/studio`, data);
+    },
+
+    deleteDesign: (eventId, designId) => {
+        return axiosInstance.delete(`/events/${eventId}/designs/${designId}`);
     }
 };
 

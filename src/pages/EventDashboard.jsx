@@ -1,47 +1,44 @@
 import React, { useState, useEffect } from 'react';
+import dayjs from 'dayjs';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card, Tabs, Typography, Button, Space, message, Spin,
-  Row, Col, Select, Tag, Table, InputNumber, Popconfirm, Modal, Empty, Skeleton, Upload, Progress
+  Row, Col, Select, Tag, Table, InputNumber, Popconfirm, Modal, Empty, Upload, Progress, Form, Input, Badge
 } from 'antd';
 import {
-  ArrowLeftOutlined, UserAddOutlined, SaveOutlined, DownloadOutlined, IdcardOutlined, 
-  PictureOutlined, EyeOutlined, ExportOutlined, ImportOutlined, UploadOutlined
+  ArrowLeftOutlined, UserAddOutlined, SaveOutlined, ExportOutlined, ImportOutlined, UploadOutlined, SettingOutlined, DeleteOutlined
 } from '@ant-design/icons';
-import { QRCodeSVG } from 'qrcode.react';
-import html2canvas from 'html2canvas';
 import eventsApi from '../api/eventsApi';
-import { listAdminTemplates, fetchAsBlob } from '../api/templatesApi';
 import axiosInstance from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 const { Title, Text } = Typography;
 
 const EventDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.some(r => r.slug === 'super-admin' || r.slug === 'admin');
   
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState(null);
-  const [templates, setTemplates] = useState([]);
   const [guests, setGuests] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupPledge, setGroupPledge] = useState(0);
   const [importing, setImporting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [previewGuest, setPreviewGuest] = useState(null);
-  const [imageUrl, setImageUrl] = useState(null);
-  const [loadingImage, setLoadingImage] = useState(false);
   
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [groupContacts, setGroupContacts] = useState([]);
-  const [cardType, setCardType] = useState('SINGLE');
 
   const [importProgress, setImportProgress] = useState(0);
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState('');
 
-  const [cardModalVisible, setCardModalVisible] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [uploadingDesign, setUploadingDesign] = useState(false);
+  const [uploadForm] = Form.useForm();
 
   const fetchEvent = async () => {
     try {
@@ -63,13 +60,6 @@ const EventDashboard = () => {
     }
   };
 
-  const fetchTemplates = async () => {
-    try {
-      const res = await listAdminTemplates({ is_active: 1, per_page: 100 });
-      setTemplates(res.data || []);
-    } catch (e) {}
-  };
-
   const fetchGroups = async () => {
     try {
       const res = await axiosInstance.get('/contact-groups');
@@ -80,53 +70,11 @@ const EventDashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchGuests(), fetchTemplates(), fetchGroups()]);
+      await Promise.all([fetchEvent(), fetchGuests(), fetchGroups()]);
       setLoading(false);
     };
     loadData();
   }, [id]);
-
-  const handleTemplateChange = async (templateId) => {
-    try {
-      await eventsApi.updateEvent(id, { template_id: templateId });
-      setEvent(prev => ({ ...prev, template_id: templateId }));
-      message.success('Template updated for this event');
-    } catch (e) {
-      message.error('Failed to update template');
-    }
-  };
-
-  useEffect(() => {
-    let objectUrl = null;
-    let isMounted = true;
-
-    const loadTemplateImage = async () => {
-      if (event?.template_id && templates && templates.length > 0) {
-        const template = templates.find(t => (t.id == event.template_id));
-        if (template) {
-          const targetUrl = template.preview_url || template.file_url;
-          if (targetUrl) {
-            setLoadingImage(true);
-            try {
-              const blob = await fetchAsBlob(targetUrl);
-              if (!isMounted) return;
-              objectUrl = URL.createObjectURL(blob);
-              setImageUrl(objectUrl);
-            } catch (err) {
-              console.error('Failed to load template image', err);
-            } finally {
-              if (isMounted) setLoadingImage(false);
-            }
-          }
-        }
-      }
-    };
-    loadTemplateImage();
-    return () => {
-      isMounted = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [event?.template_id, templates]);
 
   const openImportModal = async () => {
     if (!selectedGroup) return message.warning('Select a group first');
@@ -268,168 +216,49 @@ const EventDashboard = () => {
     }
   };
 
-  const renderCardPreview = () => {
-    if (!event || !event.template_id) return <Empty description="No template selected for this event." />;
-    if (!previewGuest) return null;
+  const handleCustomCardUpload = async (values) => {
+    const file = values.custom_card_file?.[0]?.originFileObj;
+    if (!file) return message.error('Please select an image file');
 
-    const template = templates.find(t => t.id == event.template_id);
-    if (!template) return <Empty description="Template not found." />;
+    const formData = new FormData();
+    formData.append('category', values.category);
+    formData.append('custom_card_file', file);
 
-    let config = {
-      guest_name: { x: 50, y: 40, fontSize: 24, color: '#000000', fontFamily: 'Arial' },
-      card_type: { x: 50, y: 60, fontSize: 14, color: '#000000', fontFamily: 'Arial' },
-      qr_code: { x: 50, y: 85, size: 100 }
-    };
-    
+    setUploadingDesign(true);
     try {
-      if (template.placeholders && template.placeholders.length > 0 && typeof template.placeholders[0] === 'string') {
-        config = JSON.parse(template.placeholders[0]);
-      } else if (template.placeholders && typeof template.placeholders === 'object' && !Array.isArray(template.placeholders)) {
-        // If it was already parsed by Laravel (unlikely given the [0] structure but safe)
-        config = template.placeholders;
-      }
+      await eventsApi.uploadDesign(id, formData);
+      message.success('Custom design uploaded successfully');
+      setUploadModalVisible(false);
+      uploadForm.resetFields();
+      fetchEvent();
     } catch (e) {
-      console.error('Placeholder parse error:', e);
+      message.error(e?.response?.data?.message || 'Failed to upload custom design');
+    } finally {
+      setUploadingDesign(false);
     }
-
-    // Smart Card Number: EV-GU-ID
-    const evPrefix = event.name.substring(0, 2).toUpperCase();
-    const guPrefix = (previewGuest.contact?.first_name || 'GU').substring(0, 2).toUpperCase();
-    const cardNumber = `${evPrefix}-${guPrefix}-${previewGuest.id || '000'}`;
-    
-    return (
-      <div id="card-preview" style={{ 
-        position: 'relative', 
-        width: '100%', 
-        maxWidth: 500, 
-        margin: '0 auto', 
-        borderRadius: 12, 
-        overflow: 'hidden', 
-        boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
-        background: '#fff'
-      }}>
-        {imageUrl ? (
-          <img src={imageUrl} alt="Card Template" style={{ width: '100%', display: 'block' }} />
-        ) : (
-          <div style={{ padding: 60, textAlign: 'center' }}>
-            <Spin tip="Preparing Canvas..." />
-          </div>
-        )}
-        
-        {/* Guest Name */}
-        <div style={{ 
-          position: 'absolute', 
-          top: `${config.guest_name.y}%`, 
-          left: `${config.guest_name.x}%`, 
-          color: config.guest_name.color, 
-          fontSize: config.guest_name.fontSize, 
-          fontFamily: config.guest_name.fontFamily, 
-          fontWeight: 'bold', 
-          transform: 'translate(-50%, -50%)', 
-          whiteSpace: 'nowrap',
-          textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-        }}>
-          {previewGuest.contact?.first_name} {previewGuest.contact?.last_name}
-        </div>
-
-        {/* Card Type */}
-        <div style={{ 
-          position: 'absolute', 
-          top: `${config.card_type.y}%`, 
-          left: `${config.card_type.x}%`, 
-          color: config.card_type.color, 
-          fontSize: config.card_type.fontSize, 
-          fontFamily: config.card_type.fontFamily, 
-          transform: 'translate(-50%, -50%)', 
-          whiteSpace: 'nowrap',
-          fontWeight: 500,
-          background: 'rgba(255,255,255,0.2)',
-          padding: '2px 8px',
-          borderRadius: 4
-        }}>
-          {cardType} CARD
-        </div>
-
-        {/* QR Code Section - Number only inside QR */}
-        <div style={{ 
-          position: 'absolute', 
-          top: `${config.qr_code.y}%`, 
-          left: `${config.qr_code.x}%`, 
-          transform: 'translate(-50%, -50%)', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center' 
-        }}>
-          <div style={{ 
-            width: config.qr_code.size, 
-            height: config.qr_code.size, 
-            background: '#fff', 
-            padding: 8, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-          }}>
-            <QRCodeSVG value={cardNumber} size={config.qr_code.size - 16} />
-          </div>
-        </div>
-      </div>
-    );
   };
 
-  const handleGenerateAndSaveCard = async () => {
-    const totalPaid = parseFloat(previewGuest.payments_sum_amount || previewGuest.paid_amount || 0);
-    const balance = parseFloat(previewGuest.pledge_amount || 0) - totalPaid;
-
-    const proceed = async () => {
-      const element = document.getElementById('card-preview');
-      if (!element) return;
-      
-      const hide = message.loading('Generating and saving card...', 0);
-      try {
-        const canvas = await html2canvas(element, { useCORS: true, scale: 2 });
-        
-        const evPrefix = event.name.substring(0, 2).toUpperCase();
-        const guPrefix = (previewGuest.contact?.first_name || 'GU').substring(0, 2).toUpperCase();
-        const cardNumber = `${evPrefix}-${guPrefix}-${previewGuest.id || '000'}`;
-
-        canvas.toBlob(async (blob) => {
-          const formData = new FormData();
-          formData.append('card_image', blob, `card_${previewGuest.hash_id}.png`);
-          formData.append('card_number', cardNumber);
-
-          try {
-            await axiosInstance.post(`/events/${id}/guests/${previewGuest.hash_id || previewGuest.id}/store-card`, formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            message.success('Card generated and saved successfully!');
-            setCardModalVisible(false);
-            fetchGuests(); // Refresh to show "Created" status
-          } catch (err) {
-            message.error('Failed to save card to server.');
-          } finally {
-            hide();
-          }
-        }, 'image/png');
-
-      } catch (e) {
-        hide();
-        message.error('Generation failed.');
-      }
-    };
-
-    if (balance > 0) {
-      Modal.confirm({
-        title: 'Outstanding Balance Detected',
-        content: `This guest still has an unpaid balance of TZS ${balance.toLocaleString()}. Are you sure you want to generate their card anyway?`,
-        okText: 'Generate Anyway',
-        cancelText: 'Cancel',
-        onOk: proceed
-      });
-    } else {
-      proceed();
+  const handleDeleteDesign = async (designId) => {
+    try {
+      await eventsApi.deleteDesign(id, designId);
+      message.success('Design deleted successfully');
+      fetchEvent();
+    } catch (e) {
+      message.error('Failed to delete design');
     }
+  };
+
+  const handleEventImageUpload = async (file) => {
+    const formData = new FormData();
+    formData.append('event_image', file);
+    try {
+      await eventsApi.uploadEventImage(id, formData);
+      message.success('Event cover image updated successfully');
+      fetchEvent();
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Failed to upload cover image');
+    }
+    return false;
   };
 
   const guestColumns = [
@@ -437,14 +266,6 @@ const EventDashboard = () => {
       title: 'Guest',
       key: 'name',
       render: (_, r) => <Text strong>{r.contact?.first_name} {r.contact?.last_name}</Text>
-    },
-    {
-      title: 'Card Status',
-      dataIndex: 'card_status',
-      key: 'card_status',
-      render: (v) => v === 'created' 
-        ? <Tag color="success">Created</Tag> 
-        : <Tag color="default">Not Created</Tag>
     },
     {
       title: 'Ahadi (TZS)',
@@ -516,7 +337,6 @@ const EventDashboard = () => {
       key: 'actions',
       render: (_, r) => (
         <Space>
-          <Button type="primary" ghost icon={<IdcardOutlined />} onClick={() => { setPreviewGuest(r); setCardModalVisible(true); }}>Card</Button>
           <Popconfirm title="Remove guest?" onConfirm={() => handleDeleteGuest(r.hash_id || r.id)}>
             <Button danger icon={<ArrowLeftOutlined style={{ rotate: '135deg' }} />}></Button>
           </Popconfirm>
@@ -525,17 +345,59 @@ const EventDashboard = () => {
     }
   ];
 
+  const attendanceColumns = [
+    {
+      title: 'Guest Name',
+      key: 'name',
+      render: (_, r) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{r.contact?.first_name} {r.contact?.last_name}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>{r.contact?.phone}</Text>
+        </Space>
+      )
+    },
+    {
+      title: 'Entry Status',
+      key: 'is_attended',
+      filters: [
+        { text: 'Arrived', value: true },
+        { text: 'Pending', value: false },
+      ],
+      onFilter: (value, record) => !!record.is_attended === value,
+      render: (_, r) => (
+        r.is_attended ? 
+          <Tag color="success" style={{ borderRadius: 12, padding: '2px 12px', fontWeight: 600 }}>ARRIVED</Tag> : 
+          <Tag color="default" style={{ borderRadius: 12, padding: '2px 12px' }}>PENDING</Tag>
+      )
+    },
+    {
+      title: 'Check-in Time',
+      dataIndex: 'attended_at',
+      key: 'attended_at',
+      sorter: (a, b) => dayjs(a.attended_at || 0).unix() - dayjs(b.attended_at || 0).unix(),
+      render: (val) => val ? dayjs(val).format('MMM DD, HH:mm:ss') : <Text type="secondary">-</Text>
+    }
+  ];
+
   if (loading) return <div style={{ textAlign: 'center', padding: 100 }}><Spin size="large" /></div>;
   if (!event) return null;
 
   return (
     <div style={{ paddingBottom: 24 }}>
-      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/events')} />
-        <div>
-          <Title level={3} style={{ margin: 0 }}>{event.name}</Title>
-          <Text type="secondary">Manage your event details, guests, pledges, and digital cards.</Text>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/events')} />
+          <div>
+            <Title level={3} style={{ margin: 0 }}>{event.name}</Title>
+            <Text type="secondary">Manage your event details, guests, pledges, and digital cards.</Text>
+          </div>
         </div>
+        
+        {event.design_status === 'pending' && !isAdmin && (
+          <Tag color="warning" style={{ padding: '8px 16px', fontSize: 14, borderRadius: 8 }}>
+            Status: Pending Design from Admin
+          </Tag>
+        )}
       </div>
 
       <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} bodyStyle={{ padding: 0 }}>
@@ -546,7 +408,7 @@ const EventDashboard = () => {
           items={[
             {
               key: 'overview',
-              label: 'Overview & Template',
+              label: 'Overview',
               children: (
                 <div style={{ padding: '24px 0' }}>
                   <Row gutter={24}>
@@ -555,75 +417,111 @@ const EventDashboard = () => {
                       <p><strong>Location:</strong> {event.location || 'N/A'}</p>
                       <p><strong>Date:</strong> {event.event_date}</p>
                       <p><strong>Description:</strong> {event.description}</p>
+                      
+                      <div style={{ marginTop: 20, marginBottom: 20 }}>
+                        <Text strong style={{ display: 'block', marginBottom: 8 }}>Event Cover Image</Text>
+                        {event.image_url ? (
+                          <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 8, overflow: 'hidden', border: '1px solid #d9d9d9', marginBottom: 8 }}>
+                            <img src={event.image_url} alt="Event Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ) : (
+                          <div style={{ width: '100%', height: 120, background: '#fafafa', border: '1px dashed #d9d9d9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bfbfbf', marginBottom: 8 }}>
+                            No cover image uploaded
+                          </div>
+                        )}
+                        <Upload
+                          accept="image/*"
+                          showUploadList={false}
+                          beforeUpload={handleEventImageUpload}
+                        >
+                          <Button icon={<UploadOutlined />}>
+                            {event.image_url ? 'Change Cover Image' : 'Upload Cover Image'}
+                          </Button>
+                        </Upload>
+                      </div>
+                      
+                      <div style={{ marginTop: 24, padding: '20px', background: '#f0f5ff', borderRadius: 16, border: '1px solid #adc6ff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <Title level={5} style={{ margin: 0, color: '#003a8c' }}>Live Attendance Counter</Title>
+                          <Badge 
+                            count={`${event.attended_guests || 0} / ${event.total_guests || 0}`} 
+                            style={{ backgroundColor: '#0892d0', fontSize: 14, padding: '0 12px', height: 28, lineHeight: '28px', borderRadius: 14 }} 
+                          />
+                        </div>
+                        <Progress 
+                          percent={Math.round(((event.attended_guests || 0) / (event.total_guests || 1)) * 100)} 
+                          status="active" 
+                          strokeColor={{
+                            '0%': '#108ee9',
+                            '100%': '#87d068',
+                          }}
+                          strokeWidth={12}
+                        />
+                        <div style={{ marginTop: 8, textAlign: 'center' }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {Math.round(((event.attended_guests || 0) / (event.total_guests || 1)) * 100)}% of guests have arrived.
+                          </Text>
+                        </div>
+                      </div>
                     </Col>
                     <Col xs={24} md={12}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <Title level={5} style={{ margin: 0 }}>Card Template Selection</Title>
-                        <Button 
-                          type="primary" 
-                          icon={<PictureOutlined />} 
-                          onClick={() => navigate('/templates', { state: { eventId: id } })}
-                        >
-                          Template Gallery
-                        </Button>
-                      </div>
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                        Select the template to be used for generating digital cards for your guests.
-                      </Text>
-                      
-                      {event.template_id ? (
-                        <Card 
-                          size="small" 
-                          styles={{ body: { padding: 12 } }}
-                          style={{ borderRadius: 12, border: '1px solid #f0f0f0', background: '#f9f9f9' }}
-                        >
-                          <Row gutter={16} align="middle">
-                            <Col span={8}>
-                              {loadingImage ? (
-                                <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eee', borderRadius: 8 }}>
-                                  <Spin />
-                                </div>
-                              ) : imageUrl ? (
-                                <img src={imageUrl} alt="Selected Template" style={{ width: '100%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
-                              ) : (
-                                <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', borderRadius: 8, color: '#bfbfbf' }}>
-                                  <PictureOutlined style={{ fontSize: 32 }} />
-                                </div>
-                              )}
-                            </Col>
-                            <Col span={16}>
-                              <Text strong style={{ fontSize: 16, display: 'block' }}>
-                                {templates.find(t => t.id == event.template_id)?.name || 'Selected Template'}
-                              </Text>
-                              <Tag color="green" style={{ marginTop: 8 }}>Active for this Event</Tag>
-                              <Button 
-                                block 
-                                style={{ marginTop: 12 }} 
-                                onClick={() => navigate('/templates', { state: { eventId: id } })}
-                              >
-                                Change Design
-                              </Button>
-                            </Col>
-                          </Row>
-                        </Card>
-                      ) : (
-                        <Empty 
-                          description="No template selected" 
-                          image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        >
-                          <Button type="primary" onClick={() => navigate('/templates', { state: { eventId: id } })}>
-                            Browse Templates
+                        <Title level={5} style={{ margin: 0 }}>Uploaded Designs</Title>
+                        {isAdmin && (
+                          <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)}>
+                            Upload Design
                           </Button>
-                        </Empty>
+                        )}
+                      </div>
+                      
+                      {event.designs && event.designs.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {event.designs.map(design => (
+                            <Card key={design.id} size="small" style={{ borderRadius: 8, background: '#f9f9f9' }}>
+                              <Row align="middle" justify="space-between">
+                                <Col>
+                                  <Text strong style={{ display: 'block' }}>{design.category}</Text>
+                                </Col>
+                                <Col>
+                                  <Space>
+                                    <Button 
+                                      type="primary" 
+                                      ghost 
+                                      icon={<SettingOutlined />} 
+                                      onClick={() => navigate(`/events/${id}/studio`, { state: { designId: design.id } })}
+                                    >
+                                      Configure
+                                    </Button>
+                                    {isAdmin && (
+                                      <Popconfirm title="Delete this design?" onConfirm={() => handleDeleteDesign(design.id)}>
+                                        <Button danger icon={<DeleteOutlined />} />
+                                      </Popconfirm>
+                                    )}
+                                  </Space>
+                                </Col>
+                              </Row>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <Empty description="No designs uploaded for this event." image={Empty.PRESENTED_IMAGE_SIMPLE} />
                       )}
                     </Col>
+                    
+                    {event.card_requirements && (
+                      <Col span={24} style={{ marginTop: 24 }}>
+                        <Card size="small" title="Design Requirements" style={{ background: '#fffbe6', borderColor: '#ffe58f' }}>
+                          <Text>{event.card_requirements}</Text>
+                        </Card>
+                      </Col>
+                    )}
                   </Row>
                 </div>
               )
             },
             {
               key: 'guests',
-              label: 'Guests & Contributions',
+              label: 'Contributions and Guests',
               children: (
                 <div style={{ padding: '24px 0' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 16, background: '#fafafa', padding: 16, borderRadius: 8 }}>
@@ -723,25 +621,69 @@ const EventDashboard = () => {
               )
             },
             {
-              key: 'card',
-              label: 'Smart Card Generator',
+              key: 'attendance',
+              label: 'Attendance Tracking',
               children: (
-                <div style={{ padding: '24px 0', textAlign: 'center' }}>
-                  {renderCardPreview()}
-                  {previewGuest && event?.template_id && (
-                    <Space style={{ marginTop: 24 }}>
-                      <Select value={cardType} onChange={setCardType} options={[{label:'SINGLE', value:'SINGLE'}, {label:'DOUBLE', value:'DOUBLE'}]} style={{ width: 120 }} size="large" />
-                      <Button type="primary" icon={<SaveOutlined />} size="large" onClick={handleGenerateAndSaveCard}>
-                        {previewGuest?.card_status === 'created' ? 'Re-generate & Save' : 'Generate & Save Card'}
-                      </Button>
-                    </Space>
-                  )}
+                <div style={{ padding: '24px 0' }}>
+                  <Row gutter={16} style={{ marginBottom: 24 }}>
+                    <Col xs={24} md={8}>
+                      <Card size="small" style={{ borderRadius: 12, borderLeft: '4px solid #52c41a' }}>
+                        <Text type="secondary">Guests Arrived</Text>
+                        <Title level={3} style={{ margin: 0 }}>{event.attended_guests || 0}</Title>
+                      </Card>
+                    </Col>
+                    <Col xs={24} md={8}>
+                      <Card size="small" style={{ borderRadius: 12, borderLeft: '4px solid #faad14' }}>
+                        <Text type="secondary">Pending Arrival</Text>
+                        <Title level={3} style={{ margin: 0 }}>{(event.total_guests || 0) - (event.attended_guests || 0)}</Title>
+                      </Card>
+                    </Col>
+                    <Col xs={24} md={8}>
+                      <Card size="small" style={{ borderRadius: 12, borderLeft: '4px solid #1890ff' }}>
+                        <Text type="secondary">Attendance Rate</Text>
+                        <Title level={3} style={{ margin: 0 }}>
+                          {Math.round(((event.attended_guests || 0) / (event.total_guests || 1)) * 100)}%
+                        </Title>
+                      </Card>
+                    </Col>
+                  </Row>
+                  
+                  <Table 
+                    columns={attendanceColumns} 
+                    dataSource={guests} 
+                    rowKey={(r) => r.hash_id || r.id}
+                    pagination={{ pageSize: 20 }}
+                    scroll={{ x: 'max-content' }}
+                    style={{ background: '#fff', borderRadius: 8 }}
+                  />
                 </div>
               )
             }
           ]}
         />
       </Card>
+
+      <Modal
+        title="Upload Event Design"
+        open={uploadModalVisible}
+        onCancel={() => setUploadModalVisible(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <Form form={uploadForm} layout="vertical" onFinish={handleCustomCardUpload}>
+          <Form.Item name="category" label="Category Name" rules={[{ required: true, message: 'Please enter category (e.g. Mchango)' }]}>
+            <Input placeholder="e.g. Mchango" size="large" />
+          </Form.Item>
+          <Form.Item name="custom_card_file" label="Design Image" valuePropName="fileList" getValueFromEvent={(e) => e?.fileList} rules={[{ required: true, message: 'Image required' }]}>
+            <Upload beforeUpload={() => false} maxCount={1} listType="picture" accept="image/*">
+              <Button icon={<UploadOutlined />}>Select Image File</Button>
+            </Upload>
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={uploadingDesign} block size="large">
+            Upload Design
+          </Button>
+        </Form>
+      </Modal>
 
       <Modal
         title="Confirm Guest Import & Adjust Pledges"
@@ -808,44 +750,6 @@ const EventDashboard = () => {
         </div>
       </Modal>
 
-      <Modal
-        title={null}
-        open={cardModalVisible}
-        onCancel={() => setCardModalVisible(false)}
-        footer={null}
-        width={600}
-        centered
-        styles={{ body: { padding: 0 } }}
-      >
-        <div style={{ padding: 24, background: '#f0f2f5', borderRadius: '12px 12px 0 0' }}>
-          <Title level={4} style={{ margin: 0 }}>Digital Card Preview</Title>
-          <Text type="secondary">Generated for {previewGuest?.contact?.first_name} {previewGuest?.contact?.last_name}</Text>
-        </div>
-        <div style={{ padding: 24 }}>
-          {renderCardPreview()}
-          
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', padding: 16, borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Text strong>Card Type:</Text>
-              <Select 
-                value={cardType} 
-                onChange={setCardType} 
-                options={[{label:'SINGLE', value:'SINGLE'}, {label:'DOUBLE', value:'DOUBLE'}]} 
-                style={{ width: 120 }} 
-              />
-            </div>
-            <Button 
-              type="primary" 
-              icon={<SaveOutlined />} 
-              size="large" 
-              onClick={handleGenerateAndSaveCard}
-              style={{ borderRadius: 8 }}
-            >
-              {previewGuest?.card_status === 'created' ? 'Re-generate & Save' : 'Generate & Save Card'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

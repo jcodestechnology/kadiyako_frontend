@@ -1,13 +1,29 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Switch, Row, Col, message } from 'antd';
 import dayjs from 'dayjs';
 import eventsApi from '../../api/eventsApi';
+import { listAdminTemplates } from '../../api/templatesApi';
+import { useAuth } from '../../context/AuthContext';
 
 const { TextArea } = Input;
 const { Option } = Select;
 
 const EventModal = ({ visible, event, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
+  const [templates, setTemplates] = useState([]);
+  const { user } = useAuth();
+  
+  const isAdmin = user?.roles?.some(r => r.slug === 'super-admin' || r.slug === 'admin');
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await listAdminTemplates({ is_active: 1, per_page: 100 });
+        setTemplates(res.data?.data || res.data || []);
+      } catch (e) {}
+    };
+    fetchTemplates();
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -19,6 +35,8 @@ const EventModal = ({ visible, event, onCancel, onSuccess }) => {
           location: event.location,
           status: event.status,
           is_active: event.is_active,
+          template_id: event.template_id,
+          card_requirements: event.card_requirements,
         });
       } else {
         form.resetFields();
@@ -135,6 +153,33 @@ const EventModal = ({ visible, event, onCancel, onSuccess }) => {
             style={{ borderRadius: 8 }} 
           />
         </Form.Item>
+
+        {!isAdmin && (
+          <>
+            <Form.Item
+              name="template_id"
+              label={<span style={{ fontWeight: 500 }}>Sample Design Style</span>}
+            >
+              <Select placeholder="Select a sample design style (optional)" size="large" allowClear>
+                {templates.map(t => (
+                  <Option key={t.hash_id || t.id} value={t.hash_id || t.id}>{t.name}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="card_requirements"
+              label={<span style={{ fontWeight: 500 }}>Card Design Requirements</span>}
+              tooltip="Provide details to the admin on how you want your event card to look."
+            >
+              <TextArea 
+                placeholder="E.g., I want a blue theme, with a large QR code in the middle..." 
+                rows={3} 
+                style={{ borderRadius: 8 }} 
+              />
+            </Form.Item>
+          </>
+        )}
 
         <Form.Item
           name="is_active"
